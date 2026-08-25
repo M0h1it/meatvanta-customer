@@ -1,0 +1,96 @@
+import { createContext, useEffect, useState, useCallback } from "react";
+import {
+  requestOtp as requestOtpApi,
+  verifyOtp as verifyOtpApi,
+  fetchCurrentCustomer,
+  logoutRequest,
+} from "../features/auth/api/authApi";
+import { setSessionExpiredHandler } from "../lib/apiClient";
+
+export const CustomerAuthContext = createContext(null);
+
+export function CustomerAuthProvider({ children }) {
+  const [customer, setCustomer] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // The login sheet is global so any page ("Place Order", "My Orders") can open it.
+  const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [afterLoginAction, setAfterLoginAction] = useState(null);
+
+  useEffect(() => {
+    // When a refresh finally fails, drop the customer from state so the UI
+    // switches back to signed-out rather than showing a stale name.
+    setSessionExpiredHandler(() => setCustomer(null));
+
+    fetchCurrentCustomer()
+      .then(setCustomer)
+      .catch(() => setCustomer(null)) // 401 here just means "guest"
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  const openLogin = useCallback((onSuccess = null) => {
+    setAfterLoginAction(() => onSuccess);
+    setIsLoginOpen(true);
+  }, []);
+
+  const closeLogin = useCallback(() => {
+    setIsLoginOpen(false);
+    setAfterLoginAction(null);
+  }, []);
+
+  const requestOtp = useCallback((phone) => requestOtpApi(phone), []);
+
+  const verifyOtp = useCallback(
+    async ({ phone, otp, name }) => {
+      const result = await verifyOtpApi({ phone, otp, name });
+      setCustomer(result.customer);
+      setIsLoginOpen(false);
+
+      // Run whatever the customer was trying to do before login interrupted them.
+      if (afterLoginAction) {
+        const action = afterLoginAction;
+        setAfterLoginAction(null);
+        action(result.customer);
+      }
+      return result;
+    },
+    [afterLoginAction]
+  );
+
+  const logout = useCallback(async () => {
+    try {
+      await logoutRequest();
+    } finally {
+      setCustomer(null); // clear locally even if the network call failed
+    }
+  }, []);
+
+  /** Called after address changes so the header reflects them without a reload. */
+  const refreshCustomer = useCallback(async () => {
+    try {
+      const fresh = await fetchCurrentCustomer();
+      setCustomer(fresh);
+      return fresh;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const defaultAddress = customer?.addresses?.find((a) => a.isDefault) || customer?.addresses?.[0] || null;
+
+  const value = {
+    customer,
+    defaultAddress,
+    isAuthenticated: !!customer,
+    isLoading,
+    isLoginOpen,
+    openLogin,
+    closeLogin,
+    requestOtp,
+    verifyOtp,
+    logout,
+    refreshCustomer,
+  };
+
+  return <CustomerAuthContext.Provider value={value}>{children}</CustomerAuthContext.Provider>;
+}

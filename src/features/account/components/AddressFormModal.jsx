@@ -43,8 +43,11 @@ export default function AddressFormModal({ isOpen, onClose, onSaved, existingAdd
       onClose();
     } catch (err) {
       const data = err.response?.data;
-      if (data?.errors) setFieldErrors(data.errors);
-      setError(data?.message || "Couldn't save the address.");
+      const fieldLevel = data?.errors || {};
+      setFieldErrors(fieldLevel);
+      // A generic banner on top of a field error just says the same thing
+      // twice - only show it when nothing is pinned to a specific field.
+      setError(Object.keys(fieldLevel).length > 0 ? null : data?.message || "Couldn't save the address.");
     } finally {
       setIsSaving(false);
     }
@@ -86,7 +89,9 @@ export default function AddressFormModal({ isOpen, onClose, onSaved, existingAdd
             ))}
           </div>
 
-          <label className="block text-sm font-semibold text-ink mb-1">Full Address</label>
+          <label className="block text-sm font-semibold text-ink mb-1">
+            Full Address <span className="text-brand">*</span>
+          </label>
           <textarea
             required
             rows={3}
@@ -95,11 +100,19 @@ export default function AddressFormModal({ isOpen, onClose, onSaved, existingAdd
             onChange={(e) => setForm({ ...form, addressLine: e.target.value })}
             className="w-full rounded-sm border border-ink/15 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-dark"
           />
-          {fieldErrors.addressLine && <p className="text-xs text-brand mt-1">{fieldErrors.addressLine}</p>}
+          {fieldErrors.addressLine ? (
+            <p className="text-xs text-brand mt-1">{fieldErrors.addressLine}</p>
+          ) : (
+            <p className="text-xs text-ink/50 mt-1">
+              The more detail you give, the easier it is for our delivery boy to find you.
+            </p>
+          )}
 
           <div className="grid grid-cols-2 gap-3 mt-4">
             <div>
-              <label className="block text-sm font-semibold text-ink mb-1">Area / Sector</label>
+              <label className="block text-sm font-semibold text-ink mb-1">
+                Area / Sector <span className="font-normal text-ink/40">(optional)</span>
+              </label>
               <input
                 placeholder="e.g. Sector 45"
                 value={form.area}
@@ -108,7 +121,9 @@ export default function AddressFormModal({ isOpen, onClose, onSaved, existingAdd
               />
             </div>
             <div>
-              <label className="block text-sm font-semibold text-ink mb-1">Pincode</label>
+              <label className="block text-sm font-semibold text-ink mb-1">
+                Pincode <span className="font-normal text-ink/40">(optional)</span>
+              </label>
               <input
                 inputMode="numeric"
                 maxLength={6}

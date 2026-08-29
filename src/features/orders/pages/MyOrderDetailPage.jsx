@@ -130,6 +130,11 @@ export default function MyOrderDetailPage() {
                     <p className={`text-sm font-semibold ${isDone ? "text-ink" : "text-ink/40"}`}>
                       {step.label}
                     </p>
+                    {step.key === "out_for_delivery" && isDone && order.deliveryPersonName && (
+                      <p className="text-xs text-ink/60">
+                        <span className="font-semibold text-ink">{order.deliveryPersonName}</span> is on the way
+                      </p>
+                    )}
                     {isCurrent && <p className="text-xs text-brand-dark font-medium">Current status</p>}
                   </div>
                 </div>
@@ -154,6 +159,15 @@ export default function MyOrderDetailPage() {
           {formatWindow(order.deliveryStartTime, order.deliveryEndTime)}
         </p>
         <p className="text-sm text-ink/70">{order.deliveryAddress}</p>
+
+        {order.deliveryPersonName && (
+          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-hairline">
+            <span className="material-symbols-outlined text-base text-brand-dark">moped</span>
+            <p className="text-sm text-ink/70">
+              Delivered by <span className="font-semibold text-ink">{order.deliveryPersonName}</span>
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="bg-white rounded border border-hairline p-5">

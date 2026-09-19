@@ -5,6 +5,16 @@ import { useCart } from "../../../hooks/useCart";
 import { useCustomerAuth } from "../../../hooks/useCustomerAuth";
 import AddressFormModal from "../../account/components/AddressFormModal";
 import { formatWindow, formatDate, formatRupees } from "../../../lib/format";
+import { HERO_IMAGE } from "../../../lib/images";
+
+// Shown for visual completeness alongside the real payment options below.
+// None of these are wired up - COD and UPI (manual) are the only methods
+// this shop actually supports today.
+const DISABLED_PAYMENT_METHODS = [
+  { key: "card", icon: "credit_card", title: "Credit / Debit Card", text: "Visa, MasterCard, RuPay & more" },
+  { key: "netbanking", icon: "account_balance", title: "Net Banking", text: "All major banks supported" },
+  { key: "wallet", icon: "account_balance_wallet", title: "Wallets", text: "Paytm, PhonePe, Amazon Pay, etc." },
+];
 
 export default function CheckoutPage() {
   const { items, totalPrice, clearCart } = useCart();
@@ -135,8 +145,50 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="page-x max-w-3xl mx-auto py-8 md:py-12">
-      <h1 className="font-display text-headline-lg text-ink mb-6">Checkout</h1>
+    <div>
+      {/* Hero banner */}
+      <section className="relative overflow-hidden bg-gradient-to-r from-surface via-surface to-surface-alt border-b border-hairline">
+        <div className="page-x grid grid-cols-1 md:grid-cols-[1fr_auto] gap-6 items-center py-8 md:py-10">
+          <div className="flex items-center gap-4">
+            <span className="w-14 h-14 rounded-full bg-ink flex items-center justify-center shrink-0">
+              <span className="text-accent text-[10px] font-bold text-center leading-tight">حلال<br />HALAL</span>
+            </span>
+            <div>
+              <h1 className="font-display text-headline-lg">
+                <span className="text-brand">Secure Payment</span>{" "}
+                <span className="text-accent">for a Safe Purchase</span>
+              </h1>
+              <p className="text-ink/60 text-sm mt-1">
+                Choose your preferred payment method and complete your order securely.
+              </p>
+            </div>
+          </div>
+          <div className="relative hidden md:block w-64 h-32 rounded-lg overflow-hidden shrink-0">
+            <img src={HERO_IMAGE} alt="Fresh cuts" className="w-full h-full object-cover" />
+          </div>
+        </div>
+      </section>
+
+      <div className="page-x max-w-3xl mx-auto py-8 md:py-12">
+
+      {/* Decorative step indicator - this is still a single-page checkout,
+          just visually framed as Cart -> Payment -> Confirmation. */}
+      <div className="flex items-center gap-2 mb-8 text-sm">
+        <span className="flex items-center gap-1.5 text-white font-semibold bg-brand-dark px-3 py-1.5 rounded-full">
+          <span className="material-symbols-outlined text-lg">check_circle</span>
+          Cart
+        </span>
+        <span className="flex-1 h-px bg-hairline" />
+        <span className="flex items-center gap-1.5 text-brand-dark font-bold border border-brand-dark px-3 py-1.5 rounded-full">
+          <span className="w-5 h-5 rounded-full bg-brand-dark text-white text-[11px] flex items-center justify-center">2</span>
+          Payment
+        </span>
+        <span className="flex-1 h-px bg-hairline" />
+        <span className="flex items-center gap-1.5 text-ink/40 px-3 py-1.5">
+          <span className="w-5 h-5 rounded-full border border-ink/20 text-[11px] flex items-center justify-center">3</span>
+          Confirmation
+        </span>
+      </div>
 
       {generalError && (
         <div className="mb-4 rounded-sm bg-brand/10 border border-brand/30 text-brand text-sm px-4 py-3">
@@ -279,7 +331,11 @@ export default function CheckoutPage() {
 
         {/* Payment */}
         <section className="bg-white rounded border border-hairline p-5">
-          <h2 className="font-bold text-ink mb-3">Payment Method</h2>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="material-symbols-outlined text-brand">lock</span>
+            <h2 className="font-bold text-ink">Payment Method</h2>
+          </div>
+          <p className="text-xs text-ink/50 mb-3">Select your preferred payment option</p>
 
           <div className="space-y-2">
             {availability?.payment.codEnabled && (
@@ -295,9 +351,15 @@ export default function CheckoutPage() {
                   onChange={() => setField("paymentMethod", "cod")}
                   className="mt-1"
                 />
-                <span>
-                  <span className="font-semibold text-ink text-sm block">Cash on Delivery</span>
-                  <span className="text-xs text-ink/60">Pay when your order arrives.</span>
+                <span className="flex items-center gap-2 flex-1">
+                  <span className="material-symbols-outlined text-ink/60">payments</span>
+                  <span>
+                    <span className="font-semibold text-ink text-sm block">Cash on Delivery</span>
+                    <span className="text-xs text-ink/60">Pay when your order arrives.</span>
+                  </span>
+                </span>
+                <span className="text-[10px] font-bold uppercase text-success bg-success/10 px-2 py-0.5 rounded-full self-center shrink-0">
+                  Available
                 </span>
               </label>
             )}
@@ -315,12 +377,43 @@ export default function CheckoutPage() {
                   onChange={() => setField("paymentMethod", "upi")}
                   className="mt-1"
                 />
-                <span>
-                  <span className="font-semibold text-ink text-sm block">UPI</span>
-                  <span className="text-xs text-ink/60">Pay now, then share your receipt below.</span>
+                <span className="flex items-center gap-2 flex-1">
+                  <span className="material-symbols-outlined text-ink/60">qr_code_2</span>
+                  <span>
+                    <span className="font-semibold text-ink text-sm block">UPI</span>
+                    <span className="text-xs text-ink/60">Pay via GPay, PhonePe, Paytm & more — pay now, then share your receipt below.</span>
+                  </span>
                 </span>
               </label>
             )}
+
+            {/* Visual-only, disabled - not supported by this shop yet. Brand
+                names shown as plain text rather than logo marks. */}
+            {DISABLED_PAYMENT_METHODS.map((m) => (
+              <div
+                key={m.key}
+                title="Coming soon"
+                className="flex items-start gap-3 p-3 rounded-sm border border-ink/10 bg-surface-alt cursor-not-allowed opacity-60"
+              >
+                <input type="radio" disabled className="mt-1" />
+                <span className="flex items-center gap-2 flex-1">
+                  <span className="material-symbols-outlined text-ink/40">{m.icon}</span>
+                  <span>
+                    <span className="font-semibold text-ink/50 text-sm block">{m.title}</span>
+                    <span className="text-xs text-ink/40">{m.text}</span>
+                  </span>
+                </span>
+                {m.key === "netbanking" ? (
+                  <select disabled className="text-xs border border-ink/15 rounded-sm px-2 py-1 bg-white text-ink/40 self-center">
+                    <option>Select Bank</option>
+                  </select>
+                ) : (
+                  <span className="ml-auto text-[10px] font-bold uppercase text-ink/40 bg-white px-2 py-0.5 rounded-full self-center shrink-0">
+                    Coming soon
+                  </span>
+                )}
+              </div>
+            ))}
           </div>
 
           {form.paymentMethod === "upi" && (
@@ -362,6 +455,13 @@ export default function CheckoutPage() {
               </p>
             </div>
           )}
+
+          <div className="mt-4 flex items-start gap-2 bg-brand/5 border border-brand/15 rounded-sm p-3">
+            <span className="material-symbols-outlined text-brand text-lg">shield</span>
+            <p className="text-xs text-ink/70">
+              Your payment information is safe & secure with us. We use industry-standard encryption to protect your data.
+            </p>
+          </div>
         </section>
 
         {/* Notes */}
@@ -421,8 +521,9 @@ export default function CheckoutPage() {
           <button
             type="submit"
             disabled={isSubmitting || noDatesAvailable || !form.paymentMethod}
-            className="w-full mt-4 bg-brand text-white font-bold py-4 rounded-full hover:opacity-90 transition-opacity disabled:opacity-40"
+            className="flex items-center justify-center gap-2 w-full mt-4 bg-brand text-white font-bold py-4 rounded-full hover:opacity-90 transition-opacity disabled:opacity-40"
           >
+            <span className="material-symbols-outlined text-lg">lock</span>
             {isSubmitting ? "Placing your order..." : `Place Order · ${formatRupees(grandTotal)}`}
           </button>
         </section>
@@ -440,6 +541,7 @@ export default function CheckoutPage() {
           );
         }}
       />
+      </div>
     </div>
   );
 }

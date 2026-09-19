@@ -13,11 +13,18 @@ export default function Header() {
 
   const [query, setQuery] = useState("");
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Keep the box in sync with the URL (back button, category click, direct link).
   useEffect(() => {
     setQuery(location.pathname === "/shop" ? searchParams.get("q") || "" : "");
   }, [location.pathname, searchParams]);
+
+  // Close the mobile menu on navigation rather than leaving it open over
+  // the new page.
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [location.pathname]);
 
   function handleSearch(e) {
     e.preventDefault();
@@ -33,19 +40,55 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-40 bg-surface border-b border-hairline">
+      {/* Top trust strip */}
+      <div className="hidden sm:block bg-brand-dark text-white/90">
+        <div className="page-x flex items-center justify-between py-1.5 text-[11px] font-medium tracking-wide">
+          <span className="flex items-center gap-1.5">
+            <span className="material-symbols-outlined text-sm">local_shipping</span>
+            Free Delivery on Orders Above ₹999
+          </span>
+          <span className="flex items-center gap-4">
+            <span className="flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">eco</span>
+              Fresh
+            </span>
+            <span className="opacity-40">|</span>
+            <span className="flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">verified</span>
+              Halal
+            </span>
+            <span className="opacity-40">|</span>
+            <span className="flex items-center gap-1">
+              <span className="material-symbols-outlined text-sm">ac_unit</span>
+              No Frozen
+            </span>
+          </span>
+        </div>
+      </div>
+
       <div className="page-x">
         <div className="flex items-center gap-4 h-16">
-          {/* LEFT - logo */}
-          <Link to="/" className="flex items-center gap-2.5 shrink-0">
-            <BrandLogo className="h-9 w-9" />
-            <span className="font-display text-xl md:text-2xl font-bold text-brand tracking-tight">
-              Meat Vanta
-            </span>
-          </Link>
+          {/* LEFT - menu (mobile) + logo (the image already contains the wordmark) */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => setMobileMenuOpen((o) => !o)}
+              className="md:hidden text-ink/70 hover:text-brand"
+              aria-label="Menu"
+              aria-expanded={mobileMenuOpen}
+            >
+              <span className="material-symbols-outlined">{mobileMenuOpen ? "close" : "menu"}</span>
+            </button>
+            <Link to="/" className="flex items-center">
+              <BrandLogo className="h-10 md:h-12" />
+            </Link>
+          </div>
 
           {/* MIDDLE - navigation and search */}
           <div className="flex-1 flex items-center justify-center gap-6">
             <nav className="hidden md:flex items-center gap-6">
+              <NavLink to="/" end className={navLinkClass}>
+                Home
+              </NavLink>
               <NavLink to="/shop" className={navLinkClass}>
                 Shop
               </NavLink>
@@ -54,11 +97,15 @@ export default function Header() {
                   My Orders
                 </NavLink>
               )}
+              {/* Just "About Us" - a separate "Why Us" pointing at the same
+                  /about route caused both links to show active together,
+                  which just looked broken, and there's no dedicated Why Us
+                  page yet to make it a real distinct link. */}
               <NavLink to="/about" className={navLinkClass}>
-                About
+                About Us
               </NavLink>
-              <NavLink to="/delivery" className={navLinkClass}>
-                Delivery
+              <NavLink to="/contact" className={navLinkClass}>
+                Contact
               </NavLink>
             </nav>
 
@@ -131,6 +178,72 @@ export default function Header() {
               />
             </div>
           </form>
+        )}
+
+        {/* Mobile nav menu - the full nav list is hidden below md with no
+            other way to reach About Us/Why Us/Contact/My Orders on a phone,
+            so this hamburger panel is the only path to them there. */}
+        {mobileMenuOpen && (
+          <nav className="md:hidden pb-4 flex flex-col gap-1">
+            <NavLink
+              to="/"
+              end
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `px-3 py-2.5 rounded-sm text-sm font-semibold ${
+                  isActive ? "bg-brand/10 text-brand" : "text-ink/80 hover:bg-surface-alt"
+                }`
+              }
+            >
+              Home
+            </NavLink>
+            <NavLink
+              to="/shop"
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `px-3 py-2.5 rounded-sm text-sm font-semibold ${
+                  isActive ? "bg-brand/10 text-brand" : "text-ink/80 hover:bg-surface-alt"
+                }`
+              }
+            >
+              Shop
+            </NavLink>
+            {isAuthenticated && (
+              <NavLink
+                to="/my-orders"
+                onClick={() => setMobileMenuOpen(false)}
+                className={({ isActive }) =>
+                  `px-3 py-2.5 rounded-sm text-sm font-semibold ${
+                    isActive ? "bg-brand/10 text-brand" : "text-ink/80 hover:bg-surface-alt"
+                  }`
+                }
+              >
+                My Orders
+              </NavLink>
+            )}
+            <NavLink
+              to="/about"
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `px-3 py-2.5 rounded-sm text-sm font-semibold ${
+                  isActive ? "bg-brand/10 text-brand" : "text-ink/80 hover:bg-surface-alt"
+                }`
+              }
+            >
+              About Us
+            </NavLink>
+            <NavLink
+              to="/contact"
+              onClick={() => setMobileMenuOpen(false)}
+              className={({ isActive }) =>
+                `px-3 py-2.5 rounded-sm text-sm font-semibold ${
+                  isActive ? "bg-brand/10 text-brand" : "text-ink/80 hover:bg-surface-alt"
+                }`
+              }
+            >
+              Contact
+            </NavLink>
+          </nav>
         )}
       </div>
 

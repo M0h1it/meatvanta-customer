@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Layout from "./components/layout/Layout";
 import LoginSheet from "./features/auth/components/LoginSheet";
+import ScrollToTop from "./components/common/ScrollToTop";
 
 import HomePage from "./features/home/pages/HomePage";
 import ShopPage from "./features/shop/pages/ShopPage";
@@ -19,6 +20,7 @@ import DeliveryInfoPage from "./features/content/pages/DeliveryInfoPage";
 export default function App() {
   return (
     <Layout>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/shop" element={<ShopPage />} />

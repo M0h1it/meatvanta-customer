@@ -5,6 +5,7 @@ import {
   fetchCurrentCustomer,
   logoutRequest,
 } from "../features/auth/api/authApi";
+import { fetchAddresses } from "../features/account/api/addressesApi";
 import { setSessionExpiredHandler } from "../lib/apiClient";
 
 export const CustomerAuthContext = createContext(null);
@@ -17,13 +18,29 @@ export function CustomerAuthProvider({ children }) {
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [afterLoginAction, setAfterLoginAction] = useState(null);
 
+  // The /me endpoint (fetchCurrentCustomer) doesn't reliably include
+  // addresses, but the header's delivery-address strip needs them - so
+  // every time we load or refresh the customer, addresses are fetched
+  // separately and merged in. Without this, the header can show "Add a
+  // delivery address" even when one exists, until something else (like
+  // visiting the Account page) happens to trigger a refresh.
+  async function withAddresses(customerData) {
+    if (!customerData) return customerData;
+    try {
+      const addresses = await fetchAddresses();
+      return { ...customerData, addresses };
+    } catch {
+      return customerData; // keep whatever /me already gave us
+    }
+  }
+
   useEffect(() => {
     // When a refresh finally fails, drop the customer from state so the UI
     // switches back to signed-out rather than showing a stale name.
     setSessionExpiredHandler(() => setCustomer(null));
 
     fetchCurrentCustomer()
-      .then(setCustomer)
+      .then(async (data) => setCustomer(await withAddresses(data)))
       .catch(() => setCustomer(null)) // 401 here just means "guest"
       .finally(() => setIsLoading(false));
   }, []);
@@ -43,16 +60,17 @@ export function CustomerAuthProvider({ children }) {
   const verifyOtp = useCallback(
     async ({ phone, otp, name }) => {
       const result = await verifyOtpApi({ phone, otp, name });
-      setCustomer(result.customer);
+      const withAddr = await withAddresses(result.customer);
+      setCustomer(withAddr);
       setIsLoginOpen(false);
 
       // Run whatever the customer was trying to do before login interrupted them.
       if (afterLoginAction) {
         const action = afterLoginAction;
         setAfterLoginAction(null);
-        action(result.customer);
+        action(withAddr);
       }
-      return result;
+      return { ...result, customer: withAddr };
     },
     [afterLoginAction]
   );
@@ -68,7 +86,7 @@ export function CustomerAuthProvider({ children }) {
   /** Called after address changes so the header reflects them without a reload. */
   const refreshCustomer = useCallback(async () => {
     try {
-      const fresh = await fetchCurrentCustomer();
+      const fresh = await withAddresses(await fetchCurrentCustomer());
       setCustomer(fresh);
       return fresh;
     } catch {

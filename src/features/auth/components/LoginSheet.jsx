@@ -1,7 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { useCustomerAuth } from "../../../hooks/useCustomerAuth";
+import BrandLogo from "../../../components/common/BrandLogo";
 
 const STEPS = { PHONE: "phone", OTP: "otp" };
+
+const FEATURES = [
+  { icon: "eco", title: "Fresh Meat" },
+  { icon: "content_cut", title: "Daily Cut" },
+  { icon: "ac_unit", title: "No Frozen" },
+  { icon: "verified", title: "Halal Certified" },
+];
 
 export default function LoginSheet() {
   const { isLoginOpen, closeLogin, requestOtp, verifyOtp } = useCustomerAuth();
@@ -96,127 +104,212 @@ export default function LoginSheet() {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50"
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/50 sm:p-6"
       onClick={closeLogin}
     >
       <div
-        className="w-full sm:max-w-sm bg-surface rounded-t-2xl sm:rounded p-6 pb-8"
+        className="relative w-full sm:max-w-3xl bg-surface rounded-t-2xl sm:rounded overflow-hidden grid grid-cols-1 sm:grid-cols-2"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-start justify-between mb-1">
-          <h2 className="font-display text-xl font-bold text-ink">
-            {step === STEPS.PHONE ? "Sign in to order" : needsName ? "Almost there" : "Enter the code"}
-          </h2>
-          <button onClick={closeLogin} className="text-ink/40 hover:text-ink" aria-label="Close">
-            <span className="material-symbols-outlined">close</span>
-          </button>
-        </div>
+        <button
+          onClick={closeLogin}
+          className="absolute top-4 right-4 z-10 text-white sm:text-ink/40 sm:hover:text-ink"
+          aria-label="Close"
+        >
+          <span className="material-symbols-outlined">close</span>
+        </button>
 
-        {step === STEPS.PHONE ? (
-          <form onSubmit={handleSendOtp}>
-            <p className="text-sm text-ink/60 mb-5">
-              We'll send a 6-digit code to confirm it's you.
+        {/* Left brand panel - hidden on mobile, where this collapses to a
+            single-column sheet instead of the mockup's full split layout.
+            The hero-mobile photo is the actual background now (not a small
+            thumbnail lower down); a gradient sits between it and the text
+            so everything stays readable over the photo. */}
+        <div className="relative hidden sm:flex flex-col justify-between p-8 text-white overflow-hidden">
+          <img
+            src="/hero-mobile.jpg"
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {/* Brand-tinted wash instead of a flat black one - a plain black
+              overlay over a light/beige part of the photo just reads as
+              grey, not on-brand. This keeps the red identity while still
+              giving enough contrast for the white text. */}
+          <div className="absolute inset-0 bg-gradient-to-b from-brand-dark/85 via-brand-dark/55" />
+
+          <div className="relative">
+            <div className="flex items-center gap-2 mb-6">
+              <BrandLogo variant="mark" className="h-9" />
+              <span className="font-display text-xl font-bold">Meat Vanta</span>
+            </div>
+            <h2 className="font-display text-xl font-bold leading-tight">
+              Fresh Meat. <span className="text-accent italic">Real Freshness.</span>
+            </h2>
+            <p className="text-white/70 text-sm mt-2">
+              Sign in to continue your fresh meat journey with Meatvanta.
             </p>
 
-            <label className="block text-sm font-semibold text-ink mb-1">Mobile Number</label>
-            <div className="flex items-center rounded-sm border border-ink/15 bg-white overflow-hidden mb-1">
-              <span className="px-3 text-sm font-semibold text-ink/50 border-r border-hairline py-3">
-                +91
-              </span>
-              <input
-                autoFocus
-                type="tel"
-                inputMode="numeric"
-                maxLength={10}
-                required
-                placeholder="10-digit number"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
-                className="flex-1 px-3 py-3 text-sm focus:outline-none"
-              />
+            <div className="flex gap-5 mt-6">
+              {FEATURES.map((f) => (
+                <div key={f.title} className="flex flex-col items-center gap-1.5">
+                  <span
+                    className="material-symbols-outlined text-accent text-3xl"
+                    style={{ fontVariationSettings: "'FILL' 1" }}
+                  >
+                    {f.icon}
+                  </span>
+                  <span className="text-[10px] text-white/80 text-center leading-tight w-14">{f.title}</span>
+                </div>
+              ))}
             </div>
+          </div>
+        </div>
 
-            {error && <p className="text-xs text-brand mt-2">{error}</p>}
+        {/* Right form panel */}
+        <div className="p-6 sm:p-8 pb-8">
+          <h2 className="font-display text-xl font-bold text-ink mb-1">
+            {step === STEPS.PHONE ? (
+              <>
+                Welcome <span className="text-brand">Back!</span>
+              </>
+            ) : needsName ? (
+              "Almost there"
+            ) : (
+              "Enter the Code"
+            )}
+          </h2>
+          <p className="text-ink/60 text-sm mb-5">
+            {step === STEPS.PHONE
+              ? "Log in to your account to order your favourite fresh meat."
+              : `Sent to +91 ${phone}.`}
+          </p>
 
-            <button
-              type="submit"
-              disabled={isSubmitting || phone.length !== 10}
-              className="w-full mt-5 bg-brand text-white font-bold py-3.5 rounded-full hover:opacity-90 disabled:opacity-40"
-            >
-              {isSubmitting ? "Sending..." : "Send Code"}
-            </button>
-          </form>
-        ) : (
-          <form onSubmit={handleVerify}>
-            <p className="text-sm text-ink/60 mb-4">
-              Sent to +91 {phone}.{" "}
+          {step === STEPS.PHONE ? (
+            <form onSubmit={handleSendOtp}>
+              <label className="block text-sm font-semibold text-ink mb-1">Mobile Number</label>
+              <div className="flex items-center rounded-sm border border-ink/15 bg-white overflow-hidden mb-1">
+                <span className="px-3 text-sm font-semibold text-ink/50 border-r border-hairline py-3">
+                  +91
+                </span>
+                <input
+                  autoFocus
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={10}
+                  required
+                  placeholder="10-digit number"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+                  className="flex-1 px-3 py-3 text-sm focus:outline-none"
+                />
+              </div>
+              <p className="text-xs text-ink/50 mb-1">We'll send a 6-digit code to confirm it's you.</p>
+
+              {error && <p className="text-xs text-brand mt-2">{error}</p>}
+
+              <button
+                type="submit"
+                disabled={isSubmitting || phone.length !== 10}
+                className="w-full mt-5 bg-brand text-white font-bold py-3.5 rounded-full hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                {isSubmitting ? "Sending..." : "Send Code"}
+                {!isSubmitting && <span className="material-symbols-outlined text-lg">arrow_forward</span>}
+              </button>
+
+              {/* Visual-only, disabled - this shop only supports phone + OTP today */}
+              <div className="flex items-center gap-3 my-4">
+                <span className="flex-1 h-px bg-hairline" />
+                <span className="text-xs text-ink/40">OR</span>
+                <span className="flex-1 h-px bg-hairline" />
+              </div>
+              <div className="space-y-2" title="Coming soon">
+                <button
+                  type="button"
+                  disabled
+                  className="w-full flex items-center justify-center gap-2 border border-ink/15 rounded-sm py-3 text-sm font-semibold text-ink/40 bg-surface-alt cursor-not-allowed"
+                >
+                  <span className="material-symbols-outlined text-base">mail</span>
+                  Continue with Google
+                </button>
+                <button
+                  type="button"
+                  disabled
+                  className="w-full flex items-center justify-center gap-2 border border-ink/15 rounded-sm py-3 text-sm font-semibold text-ink/40 bg-surface-alt cursor-not-allowed"
+                >
+                  <span className="material-symbols-outlined text-base">phone_iphone</span>
+                  Continue with Apple
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleVerify}>
               <button
                 type="button"
                 onClick={() => setStep(STEPS.PHONE)}
-                className="text-brand-dark font-semibold underline"
+                className="text-brand-dark text-sm font-semibold underline mb-4"
               >
-                Change
+                Change number
               </button>
-            </p>
 
-            {devOtp && (
-              <div className="mb-4 rounded-sm bg-accent/15 border border-accent/40 px-3 py-2">
-                <p className="text-xs text-ink/70">
-                  Dev mode — your code is <span className="font-mono font-bold">{devOtp}</span>
-                </p>
-              </div>
-            )}
+              {devOtp && (
+                <div className="mb-4 rounded-sm bg-accent/15 border border-accent/40 px-3 py-2">
+                  <p className="text-xs text-ink/70">
+                    Dev mode — your code is <span className="font-mono font-bold">{devOtp}</span>
+                  </p>
+                </div>
+              )}
 
-            <label className="block text-sm font-semibold text-ink mb-1">6-Digit Code</label>
-            <input
-              ref={otpInputRef}
-              type="text"
-              inputMode="numeric"
-              maxLength={6}
-              required
-              placeholder="------"
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-              className="w-full rounded-sm border border-ink/15 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-brand-dark"
-            />
+              <label className="block text-sm font-semibold text-ink mb-1">6-Digit Code</label>
+              <input
+                ref={otpInputRef}
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                required
+                placeholder="------"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                className="w-full rounded-sm border border-ink/15 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-brand-dark"
+              />
 
-            {needsName && (
-              <div className="mt-4">
-                <label className="block text-sm font-semibold text-ink mb-1">Your Name</label>
-                <input
-                  autoFocus
-                  required
-                  placeholder="So we know who's ordering"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-sm border border-ink/15 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-dark"
-                />
-                <p className="text-xs text-ink/50 mt-1">First time here — welcome!</p>
-              </div>
-            )}
+              {needsName && (
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-ink mb-1">Your Name</label>
+                  <input
+                    autoFocus
+                    required
+                    placeholder="So we know who's ordering"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full rounded-sm border border-ink/15 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-dark"
+                  />
+                  <p className="text-xs text-ink/50 mt-1">First time here — welcome!</p>
+                </div>
+              )}
 
-            {error && <p className="text-xs text-brand mt-2">{error}</p>}
+              {error && <p className="text-xs text-brand mt-2">{error}</p>}
 
-            <button
-              type="submit"
-              disabled={isSubmitting || otp.length !== 6 || (needsName && name.trim().length < 2)}
-              className="w-full mt-5 bg-brand text-white font-bold py-3.5 rounded-full hover:opacity-90 disabled:opacity-40"
-            >
-              {isSubmitting ? "Verifying..." : needsName ? "Create Account" : "Verify & Continue"}
-            </button>
+              <button
+                type="submit"
+                disabled={isSubmitting || otp.length !== 6 || (needsName && name.trim().length < 2)}
+                className="w-full mt-5 bg-brand text-white font-bold py-3.5 rounded-full hover:opacity-90 disabled:opacity-40"
+              >
+                {isSubmitting ? "Verifying..." : needsName ? "Create Account" : "Login"}
+              </button>
 
-            <button
-              type="button"
-              disabled={resendIn > 0 || isSubmitting}
-              onClick={handleSendOtp}
-              className="w-full mt-3 text-sm font-semibold text-ink/60 disabled:opacity-50"
-            >
-              {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
-            </button>
-          </form>
-        )}
+              <button
+                type="button"
+                disabled={resendIn > 0 || isSubmitting}
+                onClick={handleSendOtp}
+                className="w-full mt-3 text-sm font-semibold text-ink/60 disabled:opacity-50"
+              >
+                {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );

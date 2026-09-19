@@ -1,14 +1,24 @@
 /**
- * Drop the real logo at /public/logo.png and it appears everywhere this is used.
- * Until then a monogram stands in, so layout and spacing are already correct.
+ * Two real assets in /public:
+ *  - logo.png       - the full "meatvanta" wordmark (red/gold text, transparent
+ *                      background). Reads fine on light surfaces (the header).
+ *  - logo-mark.png   - just the bull-horn "m" mark, white/gold, transparent
+ *                      background. The wordmark's red text nearly disappears
+ *                      on the brand-dark red footer, so the footer uses this
+ *                      instead, paired with the shop name as text.
+ *
+ * variant="wordmark" (default) -> logo.png, sized by height, no extra text needed.
+ * variant="mark"                -> logo-mark.png, roughly square, pair with text.
  */
-export default function BrandLogo({ className = "h-10 w-10" }) {
+export default function BrandLogo({ className = "h-10", variant = "wordmark" }) {
+  const src = variant === "mark" ? "/logo-mark.png" : "/logo.png";
+
   return (
-    <span className={`inline-flex items-center justify-center shrink-0 ${className}`}>
+    <span className={`inline-flex items-center shrink-0 ${className}`}>
       <img
-        src="/logo.png"
+        src={src}
         alt="Meat Vanta"
-        className="h-full w-full object-contain"
+        className="h-full w-auto object-contain"
         onError={(e) => {
           e.currentTarget.style.display = "none";
           e.currentTarget.nextElementSibling.style.display = "flex";
@@ -16,7 +26,7 @@ export default function BrandLogo({ className = "h-10 w-10" }) {
       />
       <span
         style={{ display: "none" }}
-        className="h-full w-full items-center justify-center rounded bg-accent text-white font-bold text-sm tracking-tight"
+        className="h-full aspect-square items-center justify-center rounded bg-accent text-white font-bold text-sm tracking-tight"
       >
         MV
       </span>

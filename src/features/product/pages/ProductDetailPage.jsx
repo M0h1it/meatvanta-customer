@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import { fetchProduct } from "../api/productApi";
 import { fetchProducts } from "../../shop/api/shopApi";
 import { useCart } from "../../../hooks/useCart";
+import { useCustomerAuth } from "../../../hooks/useCustomerAuth";
 import { productImage } from "../../../lib/images";
 
 const QUALITY_POINTS = [
@@ -15,6 +16,7 @@ export default function ProductDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addItem } = useCart();
+  const { isAuthenticated, openLogin } = useCustomerAuth();
 
   const [product, setProduct] = useState(null);
   const [related, setRelated] = useState([]);
@@ -99,8 +101,18 @@ export default function ProductDetailPage() {
     setTimeout(() => setJustAdded(false), 2200);
   }
 
+  function handleBuyNow() {
+    if (!selectedVariant || missingRequiredGroup) return;
+    addItem(product, selectedVariant, quantity, chosenOptions);
+    if (!isAuthenticated) {
+      openLogin(() => navigate("/checkout"));
+      return;
+    }
+    navigate("/checkout");
+  }
+
   return (
-    <div>
+    <div className="pb-28">
       <div className="page-x py-6 md:py-10">
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="text-[11px] font-semibold uppercase tracking-wide text-ink/50 mb-5">
@@ -234,23 +246,29 @@ export default function ProductDetailPage() {
         </div>
       </div>
 
-      {/* Sticky total bar */}
+      {/* Fixed bottom bar - deliberately `fixed`, not `sticky`. On a short
+          page (little description, one variant row), `sticky bottom-0`
+          can end up overlapping the content right above it before you've
+          even scrolled, because the page is shorter than the viewport.
+          `fixed` always pins to the viewport with no ambiguity, and the
+          pb-28 on the page's outer wrapper keeps real content from ever
+          sliding underneath it. */}
       {hasAnyStock && (
-        <div className="sticky bottom-0 z-30 bg-white border-y border-hairline shadow-[0_-2px_12px_rgba(26,26,26,0.06)]">
-          <div className="page-x py-4 flex items-center justify-between gap-4">
-            <div>
-              <p className="font-display text-2xl md:text-3xl font-bold text-ink">
-                Total: ₹{total.toFixed(0)}
+        <div className="fixed bottom-0 inset-x-0 z-30 bg-white border-t border-hairline shadow-[0_-2px_12px_rgba(26,26,26,0.08)]">
+          <div className="page-x py-3 md:py-4 flex items-center justify-between gap-3 md:gap-4">
+            <div className="shrink-0">
+              <p className="font-display text-xl md:text-3xl font-bold text-ink">
+                ₹{total.toFixed(0)}
               </p>
               {optionsTotal > 0 && (
-                <p className="text-xs text-ink/50">includes ₹{optionsTotal} options</p>
+                <p className="text-[10px] md:text-xs text-ink/50">includes ₹{optionsTotal} options</p>
               )}
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3 flex-1 sm:flex-initial justify-end">
               {justAdded && (
                 <button
                   onClick={() => navigate("/cart")}
-                  className="hidden sm:inline text-sm font-semibold text-brand underline"
+                  className="hidden sm:inline text-sm font-semibold text-brand underline shrink-0"
                 >
                   Go to cart
                 </button>
@@ -258,14 +276,21 @@ export default function ProductDetailPage() {
               <button
                 onClick={handleAddToCart}
                 disabled={!selectedVariant || !!missingRequiredGroup}
-                className="flex items-center gap-2 bg-brand text-white font-semibold px-6 md:px-8 py-3.5 rounded-full hover:bg-brand-dark transition-colors disabled:opacity-40"
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 md:gap-2 border-2 border-brand text-brand font-semibold px-4 md:px-6 py-2.5 md:py-3.5 rounded-full hover:bg-brand/5 transition-colors disabled:opacity-40 text-xs md:text-base"
               >
-                <span className="material-symbols-outlined text-xl">shopping_cart</span>
+                <span className="material-symbols-outlined text-lg md:text-xl">shopping_cart</span>
                 {justAdded
                   ? "Added ✓"
                   : missingRequiredGroup
                   ? `Choose ${missingRequiredGroup.name}`
                   : "Add to Cart"}
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={!selectedVariant || !!missingRequiredGroup}
+                className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 md:gap-2 bg-brand text-white font-semibold px-4 md:px-8 py-2.5 md:py-3.5 rounded-full hover:bg-brand-dark transition-colors disabled:opacity-40 text-xs md:text-base"
+              >
+                Buy Now
               </button>
             </div>
           </div>

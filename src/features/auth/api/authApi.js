@@ -1,12 +1,12 @@
 import apiClient from "../../../lib/apiClient";
 
-export async function requestOtp(phone) {
-  const { data } = await apiClient.post("/auth/request-otp", { phone });
-  return data.data; // { expiresInMinutes, devOtp? }
-}
-
-export async function verifyOtp({ phone, otp, name }) {
-  const { data } = await apiClient.post("/auth/verify-otp", { phone, otp, name });
+/**
+ * Confirms the access-token the MSG91 OTP Widget handed back after the
+ * customer entered the right code (see LoginSheet.jsx, which drives the
+ * widget itself - sending/matching the OTP never touches our backend).
+ */
+export async function verifyOtp({ accessToken, name }) {
+  const { data } = await apiClient.post("/auth/verify-otp", { accessToken, name });
   return data.data; // { customer, isNewCustomer }
 }
 

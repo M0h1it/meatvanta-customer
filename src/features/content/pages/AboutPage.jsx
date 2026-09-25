@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useShopInfo } from "../../../hooks/useShopInfo";
+import { useDocumentMeta } from "../../../hooks/useDocumentMeta";
 import { STORY_IMAGE } from "../../../lib/images";
 
 const PILLARS = [
@@ -25,6 +26,12 @@ export default function AboutPage() {
 
   const years = shopInfo?.yearsInBusiness || 35;
   const shopName = shopInfo?.shopName || "Meat Vanta";
+
+  useDocumentMeta({
+    title: "Our Story",
+    description: `For more than ${years} years, ${shopName} has cut fresh halal chicken, mutton and kebabs every morning and delivered them across Gurugram. Learn what makes our meat different.`,
+    path: "/about",
+  });
 
   // Blank lines separate paragraphs in the admin editor.
   const storyParagraphs = (shopInfo?.aboutStory || "")

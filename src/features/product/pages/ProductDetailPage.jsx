@@ -4,6 +4,7 @@ import { fetchProduct } from "../api/productApi";
 import { fetchProducts } from "../../shop/api/shopApi";
 import { useCart } from "../../../hooks/useCart";
 import { useCustomerAuth } from "../../../hooks/useCustomerAuth";
+import { useDocumentMeta } from "../../../hooks/useDocumentMeta";
 import { productImage } from "../../../lib/images";
 
 const QUALITY_POINTS = [
@@ -46,6 +47,24 @@ export default function ProductDetailPage() {
       .catch(() => setNotFound(true))
       .finally(() => setIsLoading(false));
   }, [id]);
+
+  const lowestVariantPrice = product?.variants?.length
+    ? Math.min(...product.variants.map((v) => Number(v.price)))
+    : null;
+
+  useDocumentMeta({
+    title: product ? product.name : undefined,
+    description: product
+      ? product.description ||
+        `Buy fresh ${product.name}${
+          product.category?.name ? ` (${product.category.name})` : ""
+        } online${
+          lowestVariantPrice !== null ? ` from ₹${lowestVariantPrice}` : ""
+        } — halal, cut fresh every morning and delivered across Gurugram.`
+      : undefined,
+    path: product ? `/product/${product.id}` : undefined,
+    image: product ? productImage(product, 1000) : undefined,
+  });
 
   if (isLoading) {
     return <div className="page-x py-16 text-sm text-ink/60">Loading...</div>;

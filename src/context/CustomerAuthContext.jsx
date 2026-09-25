@@ -1,6 +1,5 @@
 import { createContext, useEffect, useState, useCallback } from "react";
 import {
-  requestOtp as requestOtpApi,
   verifyOtp as verifyOtpApi,
   fetchCurrentCustomer,
   logoutRequest,
@@ -55,11 +54,9 @@ export function CustomerAuthProvider({ children }) {
     setAfterLoginAction(null);
   }, []);
 
-  const requestOtp = useCallback((phone) => requestOtpApi(phone), []);
-
   const verifyOtp = useCallback(
-    async ({ phone, otp, name }) => {
-      const result = await verifyOtpApi({ phone, otp, name });
+    async ({ accessToken, name }) => {
+      const result = await verifyOtpApi({ accessToken, name });
       const withAddr = await withAddresses(result.customer);
       setCustomer(withAddr);
       setIsLoginOpen(false);
@@ -104,7 +101,6 @@ export function CustomerAuthProvider({ children }) {
     isLoginOpen,
     openLogin,
     closeLogin,
-    requestOtp,
     verifyOtp,
     logout,
     refreshCustomer,

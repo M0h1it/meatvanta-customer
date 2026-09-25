@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { fetchCategories, fetchProducts } from "../api/shopApi";
+import { useDocumentMeta } from "../../../hooks/useDocumentMeta";
 import { productImage } from "../../../lib/images";
 
 function lowestPrice(product) {
@@ -45,6 +46,24 @@ export default function ShopPage() {
     if (activeCategory) next.category = activeCategory;
     setSearchParams(next);
   }
+
+  const activeCategoryName = categories.find(
+    (category) => String(category.id) === activeCategory
+  )?.name;
+
+  useDocumentMeta({
+    title: searchQuery
+      ? `Search results for "${searchQuery}"`
+      : activeCategoryName
+      ? `${activeCategoryName} — Shop Fresh Halal Meat`
+      : "Shop Fresh Halal Meat Online",
+    description: searchQuery
+      ? `Search results for "${searchQuery}" — fresh halal chicken, mutton and kebabs delivered across Gurugram.`
+      : activeCategoryName
+      ? `Order fresh ${activeCategoryName.toLowerCase()} online, cut fresh every morning and delivered across Gurugram, 6 AM to 11 AM.`
+      : "Browse fresh halal chicken, mutton, kebabs and more — cut fresh every morning and delivered across Gurugram, 6 AM to 11 AM.",
+    path: "/shop",
+  });
 
   const pillClass = (isActive) =>
     `whitespace-nowrap text-xs font-bold uppercase tracking-wide px-5 py-2.5 rounded-full border transition-colors ${

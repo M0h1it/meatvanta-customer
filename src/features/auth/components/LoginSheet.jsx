@@ -12,17 +12,25 @@ const FEATURES = [
 ];
 
 export default function LoginSheet() {
-  const { isLoginOpen, closeLogin, requestOtp, verifyOtp } = useCustomerAuth();
+  const { isLoginOpen, closeLogin, verifyOtp } = useCustomerAuth();
 
   const [step, setStep] = useState(STEPS.PHONE);
   const [phone, setPhone] = useState("");
   const [otp, setOtp] = useState("");
   const [name, setName] = useState("");
   const [needsName, setNeedsName] = useState(false);
-  const [devOtp, setDevOtp] = useState(null);
   const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resendIn, setResendIn] = useState(0);
+
+  // MSG91 widget's own request id for this OTP session - some widget
+  // configs need it passed back into verifyOtp/retryOtp, harmless to send
+  // if not required.
+  const reqIdRef = useRef(null);
+  // The access-token MSG91 hands back once the code is confirmed - this is
+  // what our backend actually checks (see authApi.verifyOtp), not the raw
+  // 6-digit code.
+  const accessTokenRef = useRef(null);
 
   const otpInputRef = useRef(null);
 
@@ -34,9 +42,10 @@ export default function LoginSheet() {
       setOtp("");
       setName("");
       setNeedsName(false);
-      setDevOtp(null);
       setError(null);
       setResendIn(0);
+      reqIdRef.current = null;
+      accessTokenRef.current = null;
     }
   }, [isLoginOpen]);
 
@@ -65,41 +74,102 @@ export default function LoginSheet() {
 
   if (!isLoginOpen) return null;
 
-  async function handleSendOtp(e) {
+  /**
+   * Sends the OTP via the MSG91 widget - straight from the browser to
+   * MSG91's servers, our backend is never involved in this step. Requires
+   * window.sendOtp, which the widget script in index.html exposes once it
+   * finishes loading (exposeMethods: true).
+   */
+  function handleSendOtp(e) {
     e?.preventDefault();
     setError(null);
-    setIsSubmitting(true);
-    try {
-      const result = await requestOtp(phone);
-      setDevOtp(result.devOtp || null); // only ever present in dev mode
-      setStep(STEPS.OTP);
-      setResendIn(60);
-    } catch (err) {
-      setError(err.response?.data?.message || "Couldn't send the code. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+
+    if (typeof window.sendOtp !== "function") {
+      setError("Couldn't load the verification service. Please refresh and try again.");
+      return;
     }
+
+    setIsSubmitting(true);
+    window.sendOtp(
+      `91${phone}`,
+      (data) => {
+        reqIdRef.current = data?.message || data?.reqId || null;
+        setStep(STEPS.OTP);
+        setResendIn(60);
+        setIsSubmitting(false);
+      },
+      (err) => {
+        setError(err?.message || "Couldn't send the code. Please try again.");
+        setIsSubmitting(false);
+      }
+    );
   }
 
-  async function handleVerify(e) {
+  /**
+   * Asks MSG91 to check the code the customer typed. Only on MSG91's own
+   * success do we get an access-token - THAT is what goes to our backend
+   * (see handleVerify below), which re-confirms it server-side before
+   * treating anyone as logged in.
+   */
+  function handleVerify(e) {
     e.preventDefault();
     setError(null);
-    setIsSubmitting(true);
-    try {
-      await verifyOtp({ phone, otp, name: needsName ? name : undefined });
-      // Sheet closes itself on success via context.
-    } catch (err) {
-      const data = err.response?.data;
-      // Backend tells us this number has no account yet and needs a name.
-      if (data?.errors?.nameRequired) {
-        setNeedsName(true);
-        setError(null);
-      } else {
-        setError(data?.message || "Couldn't verify that code.");
-      }
-    } finally {
-      setIsSubmitting(false);
+
+    if (typeof window.verifyOtp !== "function") {
+      setError("Couldn't load the verification service. Please refresh and try again.");
+      return;
     }
+
+    setIsSubmitting(true);
+    window.verifyOtp(
+      otp,
+      async (data) => {
+        try {
+          accessTokenRef.current = data?.message;
+          await verifyOtp({ accessToken: accessTokenRef.current, name: needsName ? name : undefined });
+          // Sheet closes itself on success via context.
+        } catch (err) {
+          const response = err.response?.data;
+          // Backend tells us this number has no account yet and needs a name.
+          if (response?.errors?.nameRequired) {
+            setNeedsName(true);
+            setError(null);
+          } else {
+            setError(response?.message || "Couldn't verify that code.");
+          }
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+      (err) => {
+        setError(err?.message || "That code isn't correct.");
+        setIsSubmitting(false);
+      },
+      reqIdRef.current || undefined
+    );
+  }
+
+  /** Resends via the widget's own retry method rather than sending a second
+   * fresh OTP request, so MSG91's own resend/cooldown rules apply. */
+  function handleResend() {
+    setError(null);
+    if (typeof window.retryOtp !== "function") {
+      handleSendOtp();
+      return;
+    }
+    setIsSubmitting(true);
+    window.retryOtp(
+      11, // text SMS channel
+      () => {
+        setResendIn(60);
+        setIsSubmitting(false);
+      },
+      (err) => {
+        setError(err?.message || "Couldn't resend the code. Please try again.");
+        setIsSubmitting(false);
+      },
+      reqIdRef.current || undefined
+    );
   }
 
   return (
@@ -253,22 +323,18 @@ export default function LoginSheet() {
                 Change number
               </button>
 
-              {devOtp && (
-                <div className="mb-4 rounded-sm bg-accent/15 border border-accent/40 px-3 py-2">
-                  <p className="text-xs text-ink/70">
-                    Dev mode — your code is <span className="font-mono font-bold">{devOtp}</span>
-                  </p>
-                </div>
-              )}
-
-              <label className="block text-sm font-semibold text-ink mb-1">6-Digit Code</label>
+              {/* MSG91's widget decides the OTP length (Widget Settings on
+                  their dashboard - commonly 4 digits, sometimes 6), not us -
+                  so this accepts anything in that range rather than assuming
+                  a fixed length. */}
+              <label className="block text-sm font-semibold text-ink mb-1">Verification Code</label>
               <input
                 ref={otpInputRef}
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
                 required
-                placeholder="------"
+                placeholder="Enter code"
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
                 className="w-full rounded-sm border border-ink/15 bg-white px-4 py-3 text-center text-lg font-bold tracking-[0.4em] focus:outline-none focus:ring-2 focus:ring-brand-dark"
@@ -293,7 +359,7 @@ export default function LoginSheet() {
 
               <button
                 type="submit"
-                disabled={isSubmitting || otp.length !== 6 || (needsName && name.trim().length < 2)}
+                disabled={isSubmitting || otp.length < 4 || (needsName && name.trim().length < 2)}
                 className="w-full mt-5 bg-brand text-white font-bold py-3.5 rounded-full hover:opacity-90 disabled:opacity-40"
               >
                 {isSubmitting ? "Verifying..." : needsName ? "Create Account" : "Login"}
@@ -302,7 +368,7 @@ export default function LoginSheet() {
               <button
                 type="button"
                 disabled={resendIn > 0 || isSubmitting}
-                onClick={handleSendOtp}
+                onClick={handleResend}
                 className="w-full mt-3 text-sm font-semibold text-ink/60 disabled:opacity-50"
               >
                 {resendIn > 0 ? `Resend code in ${resendIn}s` : "Resend code"}

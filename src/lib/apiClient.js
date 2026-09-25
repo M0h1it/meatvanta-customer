@@ -20,7 +20,7 @@ const refreshClient = axios.create({
 
 // Endpoints where a 401 is a normal answer ("you're a guest"), not a signal to
 // refresh. Retrying these would cause a pointless refresh on every page load.
-const NO_REFRESH_PATHS = ["/auth/refresh", "/auth/login", "/auth/request-otp", "/auth/verify-otp", "/auth/logout"];
+const NO_REFRESH_PATHS = ["/auth/refresh", "/auth/login", "/auth/verify-otp", "/auth/logout"];
 
 let isRefreshing = false;
 let queuedRequests = [];

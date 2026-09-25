@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { fetchDeliveryAvailability, placeOrder } from "../api/checkoutApi";
+import { fetchDeliveryAvailability, placeOrder, verifyRazorpayPayment } from "../api/checkoutApi";
 import { useCart } from "../../../hooks/useCart";
 import { useCustomerAuth } from "../../../hooks/useCustomerAuth";
 import AddressFormModal from "../../account/components/AddressFormModal";
@@ -8,10 +8,9 @@ import { formatWindow, formatDate, formatRupees } from "../../../lib/format";
 import { HERO_IMAGE } from "../../../lib/images";
 
 // Shown for visual completeness alongside the real payment options below.
-// None of these are wired up - COD and UPI (manual) are the only methods
-// this shop actually supports today.
+// None of these are wired up individually - they're all handled inside the
+// Razorpay widget itself once "Pay Online" is chosen.
 const DISABLED_PAYMENT_METHODS = [
-  { key: "card", icon: "credit_card", title: "Credit / Debit Card", text: "Visa, MasterCard, RuPay & more" },
   { key: "netbanking", icon: "account_balance", title: "Net Banking", text: "All major banks supported" },
   { key: "wallet", icon: "account_balance_wallet", title: "Wallets", text: "Paytm, PhonePe, Amazon Pay, etc." },
 ];
@@ -36,8 +35,6 @@ export default function CheckoutPage() {
     deliveryAddress: "",
     deliveryDate: "",
     paymentMethod: "",
-    upiReceiptText: "",
-    upiTransactionId: "",
     notes: "",
   });
 
@@ -48,7 +45,8 @@ export default function CheckoutPage() {
         setForm((f) => ({
           ...f,
           deliveryDate: data.dates[0]?.date || "",
-          paymentMethod: data.payment.codEnabled ? "cod" : data.payment.upiEnabled ? "upi" : "",
+          // upiEnabled now gates "Pay Online" (Razorpay) - see checkoutApi/backend notes.
+          paymentMethod: data.payment.codEnabled ? "cod" : data.payment.upiEnabled ? "razorpay" : "",
         }));
       })
       .catch(() => setGeneralError("Couldn't load delivery options. Please refresh."))
@@ -112,20 +110,81 @@ export default function CheckoutPage() {
     submitOrder();
   }
 
+  /**
+   * Opens Razorpay's checkout widget. No order exists on our side yet at
+   * this point - only the Razorpay order + a priced draft (see
+   * createPublicOrder on the backend). On success it calls the backend to
+   * verify the payment signature, and THAT call is what actually creates the
+   * real order. If the customer just closes the widget to see the final
+   * price/a discount, or payment fails, nothing was ever created - the shop
+   * never sees it.
+   */
+  function openRazorpayCheckout({ razorpayOrderId, razorpayKeyId, amount }) {
+    if (!window.Razorpay) {
+      setGeneralError("Payment couldn't load. Please check your connection and try again.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    const rzp = new window.Razorpay({
+      key: razorpayKeyId,
+      amount: Math.round(Number(amount) * 100),
+      currency: "INR",
+      name: "Meat Vanta",
+      description: "Order payment",
+      order_id: razorpayOrderId,
+      prefill: {
+        name: form.customerName,
+        contact: form.customerPhone,
+      },
+      theme: { color: "#C8102E" },
+      handler: async function handleRazorpaySuccess(response) {
+        try {
+          const verifiedOrder = await verifyRazorpayPayment({
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+          });
+          clearCart();
+          navigate(`/order-confirmation/${verifiedOrder.orderNumber}`, { state: { order: verifiedOrder } });
+        } catch {
+          // Payment succeeded at Razorpay but our verification call failed
+          // (network blip, etc.) - send them to order tracking rather than
+          // leaving them stuck on checkout; the webhook will also catch this
+          // and create the order on its own.
+          setGeneralError(
+            "Your payment went through, but we couldn't confirm it here. Check My Orders in a moment - it'll update shortly."
+          );
+          setIsSubmitting(false);
+        }
+      },
+      modal: {
+        // Customer closed the widget without paying - nothing was ever
+        // created on our side, so just let them try again.
+        ondismiss: () => setIsSubmitting(false),
+      },
+    });
+
+    rzp.on("payment.failed", () => {
+      setGeneralError("Payment failed. Please try again.");
+      setIsSubmitting(false);
+    });
+
+    rzp.open();
+  }
+
   async function submitOrder() {
     setGeneralError(null);
     setErrors({});
     setIsSubmitting(true);
 
     try {
-      const order = await placeOrder({
+      const { order, razorpayOrderId, razorpayKeyId, amount } = await placeOrder({
         customerName: form.customerName,
         customerPhone: form.customerPhone,
         deliveryAddress: form.deliveryAddress,
         deliveryDate: form.deliveryDate,
         paymentMethod: form.paymentMethod,
-        upiReceiptText: form.upiReceiptText || undefined,
-        upiTransactionId: form.upiTransactionId || undefined,
         notes: form.notes || undefined,
         items: items.map((i) => ({
           productVariantId: i.variantId,
@@ -133,6 +192,13 @@ export default function CheckoutPage() {
           optionIds: i.optionIds?.length ? i.optionIds : undefined,
         })),
       });
+
+      if (form.paymentMethod === "razorpay") {
+        // Nothing exists on our side yet - open the widget; the order is
+        // only created once the payment is verified as successful.
+        openRazorpayCheckout({ razorpayOrderId, razorpayKeyId, amount });
+        return;
+      }
 
       clearCart();
       navigate(`/order-confirmation/${order.orderNumber}`, { state: { order } });
@@ -364,35 +430,41 @@ export default function CheckoutPage() {
               </label>
             )}
 
+            {/* "upiEnabled" from Delivery Settings now gates online payment via
+                Razorpay - it opens a single widget covering card, UPI and
+                netbanking together, rather than a separate option per method. */}
             {availability?.payment.upiEnabled && (
               <label
                 className={`flex items-start gap-3 p-3 rounded-sm border cursor-pointer transition-colors ${
-                  form.paymentMethod === "upi" ? "border-brand-dark bg-brand-dark/5" : "border-ink/15"
+                  form.paymentMethod === "razorpay" ? "border-brand-dark bg-brand-dark/5" : "border-ink/15"
                 }`}
               >
                 <input
                   type="radio"
                   name="paymentMethod"
-                  checked={form.paymentMethod === "upi"}
-                  onChange={() => setField("paymentMethod", "upi")}
+                  checked={form.paymentMethod === "razorpay"}
+                  onChange={() => setField("paymentMethod", "razorpay")}
                   className="mt-1"
                 />
                 <span className="flex items-center gap-2 flex-1">
-                  <span className="material-symbols-outlined text-ink/60">qr_code_2</span>
+                  <span className="material-symbols-outlined text-ink/60">credit_card</span>
                   <span>
-                    <span className="font-semibold text-ink text-sm block">UPI</span>
-                    <span className="text-xs text-ink/60">Pay via GPay, PhonePe, Paytm & more — pay now, then share your receipt below.</span>
+                    <span className="font-semibold text-ink text-sm block">Pay Online</span>
+                    <span className="text-xs text-ink/60">Card, UPI or Net Banking - pay securely now via Razorpay.</span>
                   </span>
+                </span>
+                <span className="text-[10px] font-bold uppercase text-success bg-success/10 px-2 py-0.5 rounded-full self-center shrink-0">
+                  Available
                 </span>
               </label>
             )}
 
-            {/* Visual-only, disabled - not supported by this shop yet. Brand
-                names shown as plain text rather than logo marks. */}
+            {/* Visual-only, disabled - covered by the "Pay Online" option above,
+                shown just so the payment section doesn't look sparse. */}
             {DISABLED_PAYMENT_METHODS.map((m) => (
               <div
                 key={m.key}
-                title="Coming soon"
+                title="Available via Pay Online"
                 className="flex items-start gap-3 p-3 rounded-sm border border-ink/10 bg-surface-alt cursor-not-allowed opacity-60"
               >
                 <input type="radio" disabled className="mt-1" />
@@ -403,58 +475,12 @@ export default function CheckoutPage() {
                     <span className="text-xs text-ink/40">{m.text}</span>
                   </span>
                 </span>
-                {m.key === "netbanking" ? (
-                  <select disabled className="text-xs border border-ink/15 rounded-sm px-2 py-1 bg-white text-ink/40 self-center">
-                    <option>Select Bank</option>
-                  </select>
-                ) : (
-                  <span className="ml-auto text-[10px] font-bold uppercase text-ink/40 bg-white px-2 py-0.5 rounded-full self-center shrink-0">
-                    Coming soon
-                  </span>
-                )}
+                <span className="ml-auto text-[10px] font-bold uppercase text-ink/40 bg-white px-2 py-0.5 rounded-full self-center shrink-0">
+                  Via Pay Online
+                </span>
               </div>
             ))}
           </div>
-
-          {form.paymentMethod === "upi" && (
-            <div className="mt-4 pt-4 border-t border-hairline">
-              <div className="bg-surface rounded-sm p-4 mb-4 text-center">
-                <p className="text-xs text-ink/60 mb-1">Pay to</p>
-                <p className="font-bold text-ink text-lg">{availability.payment.upiPayeeName}</p>
-                <p className="font-mono font-bold text-brand-dark text-base my-1">{availability.payment.upiId}</p>
-                <p className="text-2xl font-bold text-ink mt-2">{formatRupees(grandTotal)}</p>
-                <p className="text-xs text-ink/50 mt-2">
-                  Open any UPI app, pay this amount, then share the receipt below.
-                </p>
-              </div>
-
-              <label className="block text-sm font-semibold text-ink mb-1">
-                Paste your payment receipt
-              </label>
-              <textarea
-                rows={4}
-                placeholder="In PhonePe / GPay / Paytm, open the payment → Share receipt → copy the text and paste it here."
-                value={form.upiReceiptText}
-                onChange={(e) => setField("upiReceiptText", e.target.value)}
-                className="w-full rounded-sm border border-ink/15 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-dark"
-              />
-
-              <p className="text-center text-xs text-ink/40 my-2">— or —</p>
-
-              <label className="block text-sm font-semibold text-ink mb-1">UTR / Transaction ID</label>
-              <input
-                placeholder="12-digit reference number"
-                value={form.upiTransactionId}
-                onChange={(e) => setField("upiTransactionId", e.target.value)}
-                className="w-full rounded-sm border border-ink/15 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-brand-dark"
-              />
-              {errors.upiProof && <p className="text-xs text-brand mt-2">{errors.upiProof}</p>}
-
-              <p className="text-xs text-ink/50 mt-3">
-                We'll confirm your payment before preparing the order.
-              </p>
-            </div>
-          )}
 
           <div className="mt-4 flex items-start gap-2 bg-brand/5 border border-brand/15 rounded-sm p-3">
             <span className="material-symbols-outlined text-brand text-lg">shield</span>

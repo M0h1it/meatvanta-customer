@@ -3,10 +3,39 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#B4141F" />
+
+    <title>Meat Vanta — Fresh Halal Meat Delivered in Gurugram | 35+ Years of Trust</title>
     <meta
       name="description"
       content="Meat Vanta - fresh halal chicken, mutton and kebabs cut every morning and delivered across Gurugram, 6 AM to 11 AM. 35+ years of trust."
     />
+    <link rel="canonical" href="https://meatvanta.com/" />
+
+    <!-- Open Graph / WhatsApp / Facebook share preview -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Meat Vanta" />
+    <meta property="og:locale" content="en_IN" />
+    <meta property="og:url" content="https://meatvanta.com/" />
+    <meta property="og:title" content="Meat Vanta — Fresh Halal Meat Delivered in Gurugram" />
+    <meta
+      property="og:description"
+      content="Fresh halal chicken, mutton and kebabs cut every morning and delivered across Gurugram, 6 AM to 11 AM. 35+ years of trust."
+    />
+    <meta property="og:image" content="https://meatvanta.com/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+
+    <!-- Twitter card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Meat Vanta — Fresh Halal Meat Delivered in Gurugram" />
+    <meta
+      name="twitter:description"
+      content="Fresh halal chicken, mutton and kebabs cut every morning and delivered across Gurugram, 6 AM to 11 AM."
+    />
+    <meta name="twitter:image" content="https://meatvanta.com/og-image.jpg" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -18,13 +47,100 @@
       rel="stylesheet"
     />
     <link rel="icon" type="image/png" href="/favicon.png" />
-    <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png" />
-    <link rel="icon" type="image/png" sizes="16x16" href="/favicon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <title>Meat Vanta — Fresh Halal Meat Delivered Every Morning</title>
+    <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- LocalBusiness structured data — tells Google this is a real, local
+         shop with a real address/phone/hours, tied to the Google Business
+         Profile via the Maps CID in "sameAs". This is the single most
+         impactful on-page signal for local ("meat shop near me") search. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "GroceryStore",
+        "name": "Meat Vanta",
+        "alternateName": "Star Halal Meat Shop",
+        "image": "https://meatvanta.com/og-image.jpg",
+        "url": "https://meatvanta.com/",
+        "telephone": "+91 92059 55696",
+        "priceRange": "₹₹",
+        "servesCuisine": "Halal Meat",
+        "address": {
+          "@type": "PostalAddress",
+          "streetAddress": "103/03, Hari Nagar, Sector 10A",
+          "addressLocality": "Gurugram",
+          "addressRegion": "Haryana",
+          "postalCode": "122001",
+          "addressCountry": "IN"
+        },
+        "openingHoursSpecification": [
+          {
+            "@type": "OpeningHoursSpecification",
+            "dayOfWeek": [
+              "Monday",
+              "Tuesday",
+              "Wednesday",
+              "Thursday",
+              "Friday",
+              "Saturday",
+              "Sunday"
+            ],
+            "opens": "06:00",
+            "closes": "22:00"
+          }
+        ],
+        "sameAs": ["https://www.google.com/maps?cid=4982308291582695323"]
+      }
+    </script>
   </head>
   <body class="bg-surface">
     <div id="root"></div>
+    <!-- Razorpay's checkout widget - loaded globally so CheckoutPage can open
+         it via window.Razorpay without an extra dynamic-import step. -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+    <!-- MSG91 OTP Widget - handles sending/matching the OTP entirely on
+         MSG91's side, direct from the browser. exposeMethods:true is what
+         lets LoginSheet.jsx drive it (window.sendOtp/verifyOtp/retryOtp)
+         from our own phone/OTP form instead of MSG91's own popup UI. The
+         widget's own client-side "success" here is never trusted by itself -
+         see customerAuth verifyOtp on the backend, which re-checks the
+         access-token with MSG91 before any session is ever issued.
+         The percent-sign placeholders below are Vite's own index.html env
+         replacement (not import.meta.env, which only works inside a module
+         script) - Vite reads the matching VITE_-prefixed names from .env. -->
+    <script type="text/javascript">
+      var msg91Configuration = {
+        widgetId: "%VITE_MSG91_WIDGET_ID%",
+        tokenAuth: "%VITE_MSG91_TOKEN_AUTH%",
+        exposeMethods: true,
+        success: () => {}, // unused - LoginSheet.jsx passes its own callbacks to sendOtp/verifyOtp
+        failure: () => {},
+      };
+    </script>
+    <script type="text/javascript">
+      (function loadMsg91Widget(urls) {
+        let i = 0;
+        function attempt() {
+          const s = document.createElement("script");
+          s.src = urls[i];
+          s.async = true;
+          s.onload = () => {
+            if (typeof window.initSendOTP === "function") {
+              window.initSendOTP(msg91Configuration);
+            }
+          };
+          s.onerror = () => {
+            i++;
+            if (i < urls.length) attempt();
+          };
+          document.head.appendChild(s);
+        }
+        attempt();
+      })(["https://verify.msg91.com/otp-provider.js", "https://verify.phone91.com/otp-provider.js"]);
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
